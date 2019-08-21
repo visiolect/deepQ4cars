@@ -55,13 +55,13 @@ class DeepQ:
 
     def select_action(self, state):
         with torch.no_grad():
-            probs = F.softmax(self.model(Variable(state)) * 0, 1)
-            action = torch.multinomial(probs, 3)
-            return action.data[0, 0]
+            probs = F.softmax(self.model(Variable(state)) * 10)
+            action = probs.multinomial(1)[0]
+            return action
 
-    def learn(self, batch_state, batch_next_state, batch_reward, batch_action):
-        outputs = torch.gather(self.model(batch_state),
-                               1, batch_action.long().unsqueeze(1)).squeeze(1)
+    def learn(self, batch_state, batch_next_state, batch_action, batch_reward):
+        outputs = self.model(batch_state).gather(
+            1, batch_action.unsqueeze(1)).squeeze(1)
         next_outputs = self.model(batch_next_state).detach().max(1)[0]
         target = self.discount*next_outputs + batch_reward
         loss = F.smooth_l1_loss(outputs, target)
@@ -78,10 +78,10 @@ class DeepQ:
                                )
         action = self.select_action(new_state)
         if len(self.memory.memory) > 100:
-            batch_state, batch_next_state, batch_reward, batch_action = self.memory.sample(
+            batch_state, batch_next_state, batch_action, batch_reward = self.memory.sample(
                 100)
             self.learn(batch_state, batch_next_state,
-                       batch_reward, batch_action)
+                       batch_action, batch_reward)
         self.previous_action = action
         self.previous_state = new_state
         self.previous_reward = last_reward
